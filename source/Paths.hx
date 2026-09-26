@@ -213,7 +213,7 @@ class Paths
 			return file;
 		}
 		#end
-		return 'assets/videos/$key.$VIDEO_EXT';
+		return getPreloadPath('videos/$key.webm');
 	}
 
 	static public function sound(key:String, ?library:String):Sound
@@ -290,7 +290,7 @@ class Paths
 			return file;
 		}
 		#end
-		return 'assets/fonts/$key';
+		return getPreloadPath('fonts/$key');
 	}
 
 	inline static public function fileExists(key:String, type:AssetType, ?ignoreMods:Bool = false, ?library:String)
@@ -394,6 +394,13 @@ class Paths
 		var gottenPath:String = getPath('$path/$key.$SOUND_EXT', SOUND, library);
 		gottenPath = gottenPath.substring(gottenPath.indexOf(':') + 1, gottenPath.length);
 		// trace(gottenPath);
+		if(CWAV_SOUND)
+		{
+			// 3DS/Wii U: load the CWAV straight off romfs through NDSP/SoundPlayer.
+			SoundPlayer.preload(getPreloadPath('$path/$key.$SOUND_EXT'));
+			localTrackedAssets.push(gottenPath);
+			return null;
+		}
 		if(!currentTrackedSounds.exists(gottenPath))
 		#if MODS_ALLOWED
 			currentTrackedSounds.set(gottenPath, Sound.fromFile('./' + gottenPath));
@@ -423,7 +430,7 @@ class Paths
 	}
 
 	inline static public function modsVideo(key:String) {
-		return modFolders('videos/' + key + '.' + VIDEO_EXT);
+		return modFolders('videos/' + key + '.webm');
 	}
 
 	inline static public function modsSounds(path:String, key:String) {
