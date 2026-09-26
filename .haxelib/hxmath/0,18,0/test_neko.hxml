@@ -1,6 +1,0 @@
--cp .
--main Test
--lib nanotest
--dce full
--neko bin/neko/Test.n
--D EXIT_ON_FINISH
