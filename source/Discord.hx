@@ -3,6 +3,10 @@ package;
 import Sys.sleep;
 import discord_rpc.DiscordRpc;
 
+#if LUA_ALLOWED
+import llua.Lua;
+import llua.State;
+#end
 
 using StringTools;
 
@@ -88,4 +92,11 @@ class DiscordClient
 		//trace('Discord RPC Updated. Arguments: $details, $state, $smallImageKey, $hasStartTimestamp, $endTimestamp');
 	}
 
+	#if LUA_ALLOWED
+	public static function addLuaCallbacks(lua:State) {
+		Lua_helper.add_callback(lua, "changePresence", function(details:String, state:Null<String>, ?smallImageKey:String, ?hasStartTimestamp:Bool, ?endTimestamp:Float) {
+			changePresence(details, state, smallImageKey, hasStartTimestamp, endTimestamp);
+		});
+	}
+	#end
 }
