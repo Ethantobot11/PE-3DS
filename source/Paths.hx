@@ -27,8 +27,17 @@ using StringTools;
 
 class Paths
 {
-	inline public static var SOUND_EXT = #if web "mp3" #else "ogg" #end;
-	inline public static var VIDEO_EXT = "mp4";
+	// On 3DS (and Wii U) builds, audio is stored as CWAV and loaded through
+	// the SoundPlayer/CWAV helpers straight from romfs - no ogg/mp3 decoding.
+	inline public static var SOUND_EXT = #if (n3ds || cafe) "cwav" #elseif web "mp3" #else "ogg" #end;
+
+	// Root folder for raw filesystem access. On 3DS everything baked into the
+	// CIA/3DSX lives under romfs:/assets, NOT plain assets/.
+	public static final ASSETS_ROOT:String = #if n3ds 'romfs:/assets' #else 'assets' #end;
+
+	// Whether this build streams sound via the CWAV/SoundPlayer backend.
+	public static inline var CWAV_SOUND(get, never):Bool;
+	static inline function get_CWAV_SOUND():Bool return #if (n3ds || cafe) true #else false #end;
 
 	#if MODS_ALLOWED
 	public static var ignoreModFolders:Array<String> = [
@@ -57,9 +66,9 @@ class Paths
 
 	public static var dumpExclusions:Array<String> =
 	[
-		'assets/music/freakyMenu.$SOUND_EXT',
-		'assets/shared/music/breakfast.$SOUND_EXT',
-		'assets/shared/music/tea-time.$SOUND_EXT',
+		ASSETS_ROOT + '/music/freakyMenu.$SOUND_EXT',
+		ASSETS_ROOT + '/shared/music/breakfast.$SOUND_EXT',
+		ASSETS_ROOT + '/shared/music/tea-time.$SOUND_EXT',
 	];
 	/// haya I love you for the base cache dump I took to the max
 	public static function clearUnusedMemory() {
@@ -121,6 +130,11 @@ class Paths
 
 	public static function getPath(file:String, type:AssetType, ?library:Null<String> = null)
 	{
+		#if n3ds
+		// 3DS builds don't use lime asset libraries - everything is read
+		// directly from the romfs partition (romfs:/assets/...).
+		return getPreloadPath(file);
+		#else
 		if (library != null)
 			return getLibraryPath(file, library);
 
@@ -139,6 +153,7 @@ class Paths
 		}
 
 		return getPreloadPath(file);
+		#end
 	}
 
 	static public function getLibraryPath(file:String, library = "preload")
@@ -148,13 +163,13 @@ class Paths
 
 	inline static function getLibraryPathForce(file:String, library:String)
 	{
-		var returnPath = '$library:assets/$library/$file';
+		var returnPath = '$library:${ASSETS_ROOT}/$library/$file';
 		return returnPath;
 	}
 
 	inline public static function getPreloadPath(file:String = '')
 	{
-		return 'assets/$file';
+		return '${ASSETS_ROOT}/$file';
 	}
 
 	inline static public function file(file:String, type:AssetType = TEXT, ?library:String)
@@ -198,7 +213,7 @@ class Paths
 			return file;
 		}
 		#end
-		return 'assets/videos/$key.$VIDEO_EXT';
+		return getPreloadPath('videos/$key.webm');
 	}
 
 	static public function sound(key:String, ?library:String):Sound
@@ -275,7 +290,7 @@ class Paths
 			return file;
 		}
 		#end
-		return 'assets/fonts/$key';
+		return getPreloadPath('fonts/$key');
 	}
 
 	inline static public function fileExists(key:String, type:AssetType, ?ignoreMods:Bool = false, ?library:String)
@@ -379,6 +394,13 @@ class Paths
 		var gottenPath:String = getPath('$path/$key.$SOUND_EXT', SOUND, library);
 		gottenPath = gottenPath.substring(gottenPath.indexOf(':') + 1, gottenPath.length);
 		// trace(gottenPath);
+		if(CWAV_SOUND)
+		{
+			// 3DS/Wii U: load the CWAV straight off romfs through NDSP/SoundPlayer.
+			SoundPlayer.preload(getPreloadPath('$path/$key.$SOUND_EXT'));
+			localTrackedAssets.push(gottenPath);
+			return null;
+		}
 		if(!currentTrackedSounds.exists(gottenPath))
 		#if MODS_ALLOWED
 			currentTrackedSounds.set(gottenPath, Sound.fromFile('./' + gottenPath));
@@ -408,7 +430,7 @@ class Paths
 	}
 
 	inline static public function modsVideo(key:String) {
-		return modFolders('videos/' + key + '.' + VIDEO_EXT);
+		return modFolders('videos/' + key + '.webm');
 	}
 
 	inline static public function modsSounds(path:String, key:String) {
